@@ -1,9 +1,11 @@
 "use client";
-
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { AdminPaymentDeleteButton } from "@/components/AdminPaymentDeleteButton";
 
 export function AdminPaymentActions({ paymentId }: { paymentId: string }) {
-  const [isSaving, setIsSaving] = useState(false);
-  const update = async (action: "verify" | "reject") => { setIsSaving(true); await fetch(`/api/admin/payments/${paymentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) }); window.location.reload(); };
-  return <div className="flex justify-end gap-2"><button disabled={isSaving} onClick={() => update("reject")} className="rounded-lg border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-50">Tolak</button><button disabled={isSaving} onClick={() => update("verify")} className="rounded-lg bg-[#D98392] px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#C86D7D] active:bg-[#B95F70] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EAB5C0] focus-visible:ring-offset-2">Verifikasi</button></div>;
+  const router = useRouter(); const [action, setAction] = useState<"verify" | "reject" | null>(null); const [saving, setSaving] = useState(false); const [reason, setReason] = useState(""); const [message, setMessage] = useState("");
+  async function update() { if (!action || saving) return; setSaving(true); setMessage(""); try { const res = await fetch(`/api/admin/payments/${paymentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, reason }) }); const data = await res.json(); if (!res.ok) throw new Error(data.error); setAction(null); setMessage("Pembayaran berhasil diperbarui."); router.refresh(); } catch (err) { setMessage(err instanceof Error ? err.message : "Silakan coba lagi."); } finally { setSaving(false); } }
+  return <div><div className="flex flex-wrap gap-2"><button className="btn-secondary" disabled={saving} onClick={() => setAction("reject")}>Tolak</button><button className="btn-primary" disabled={saving} onClick={() => setAction("verify")}>Terima</button><AdminPaymentDeleteButton paymentId={paymentId}/></div><p role="status" className="mt-2 text-xs">{message}</p><ConfirmDialog open={!!action} onClose={() => setAction(null)} onConfirm={update} busy={saving} title={action === "verify" ? "Terima pembayaran?" : "Tolak pembayaran?"} description={action === "verify" ? "Pastikan transfer sesuai nominal dan bukti. Pesanan akan masuk proses pembelian." : "Kode unik akan dilepas. Pelanggan dapat membuat nominal baru."}>{action === "reject" && <label className="form-label">Alasan penolakan<textarea maxLength={500} className="field mt-2" value={reason} onChange={e => setReason(e.target.value)} /></label>}</ConfirmDialog></div>;
 }

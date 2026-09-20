@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Clock,
-  Clock3,
   FileCheck,
   CircleCheck,
   ShoppingBag,
@@ -71,7 +70,7 @@ export const orderStatusMap: Record<string, {
     description: "Pembayaranmu sudah kami konfirmasi. Pesanan akan segera diproses untuk pembelian.",
     color: { bg: "bg-green-100", text: "text-green-800" },
     icon: CircleCheck,
-    stepIndex: 2,
+    stepIndex: 3,
   },
   PAYMENT_VERIFIED: {
     label: "Pembayaran Terverifikasi",
@@ -79,7 +78,7 @@ export const orderStatusMap: Record<string, {
     description: "Pembayaranmu sudah kami konfirmasi. Pesanan akan segera diproses untuk pembelian.",
     color: { bg: "bg-green-100", text: "text-green-800" },
     icon: CircleCheck,
-    stepIndex: 2,
+    stepIndex: 3,
   },
   VERIFIED: {
     label: "Pembayaran Terverifikasi",
@@ -87,7 +86,7 @@ export const orderStatusMap: Record<string, {
     description: "Pembayaranmu sudah kami konfirmasi. Pesanan akan segera diproses untuk pembelian.",
     color: { bg: "bg-green-100", text: "text-green-800" },
     icon: CircleCheck,
-    stepIndex: 2,
+    stepIndex: 3,
   },
   PURCHASING: {
     label: "Barang Sedang Dipesan",
@@ -140,7 +139,7 @@ export const orderStatusMap: Record<string, {
   COMPLETED: {
     label: "Selesai",
     headline: "Pesanan Selesai",
-    description: "Pesanan telah selesai. Terima kasih sudah menggunakan JastipHub.",
+    description: "Pesanan telah selesai. Terima kasih sudah menggunakan Titip Clei.",
     color: { bg: "bg-green-100", text: "text-green-800" },
     icon: CheckCircle2,
     stepIndex: 8,

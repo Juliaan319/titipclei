@@ -9,6 +9,7 @@ export interface PricingInput {
   additionalCost?: number;
   marginType: MarginType;
   marginValue: number;
+  marginFixed?: number;
 }
 
 export interface PricingResult {
@@ -43,7 +44,7 @@ export function calculatePricing(input: PricingInput): PricingResult {
     // Assuming marginValue represents percentage, we'd need fixed amount too.
     // For MVP, simplify or extend input if needed.
     // Let's assume marginValue is percentage and fixed amount is some standard or pass it.
-    serviceFee = (totalCost * (marginValue / 100)) + 50000; // Hardcoded fixed amount for demonstration
+    serviceFee = (totalCost * (marginValue / 100)) + (input.marginFixed ?? 0);
   }
 
   const profit = serviceFee;

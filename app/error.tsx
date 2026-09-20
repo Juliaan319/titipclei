@@ -1,0 +1,2 @@
+"use client";
+export default function ErrorPage({reset}:{reset:()=>void}){return <main className="page-wrap"><section className="panel"><h1 className="page-title">Halaman belum dapat dimuat.</h1><p className="mt-3">Terjadi kesalahan. Silakan coba lagi.</p><button className="btn-primary mt-6" onClick={reset}>Coba lagi</button></section></main>;}

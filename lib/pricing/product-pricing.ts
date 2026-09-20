@@ -26,7 +26,7 @@ export function calculateProductPricing(input: ProductPricingInput) {
   const calculatedSellingPrice = totalCost.plus(profit);
   const finalSellingPrice = roundSellingPrice(calculatedSellingPrice, input.roundingType);
 
-  return { purchasePriceIdr, totalCost, profit, calculatedSellingPrice, finalSellingPrice };
+  return { purchasePriceIdr, totalCost, profit: finalSellingPrice.minus(totalCost), calculatedSellingPrice, finalSellingPrice };
 }
 
 function roundSellingPrice(price: Prisma.Decimal, roundingType: PriceRoundingType) {

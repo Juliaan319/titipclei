@@ -1,0 +1,2 @@
+import type { ListParams } from "@/components/ListFilters";
+export function listQuery(params:ListParams){const parse=(v?:string)=>v&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v))?new Date(v):undefined;const from=parse(params.from),to=parse(params.to);if(to)to.setUTCDate(to.getUTCDate()+1);return {skip:(Math.max(1,Math.min(10000,Math.floor(Number(params.page)||1)))-1)*30,take:31,orderBy:{createdAt:params.sort==="asc"?"asc" as const:"desc" as const},createdAt:{gte:from,lt:to}};}

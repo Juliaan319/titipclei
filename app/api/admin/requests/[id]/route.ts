@@ -25,12 +25,14 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   if (!request) return NextResponse.json({ error: "Request tidak ditemukan." }, { status: 404 });
 
   const linkedOrder = await prisma.order.findFirst({ where: { requestId: id }, select: { id: true } });
-  const hasQuotationOrOrder = request.quotations.length > 0 || Boolean(linkedOrder);
-  if (hasQuotationOrOrder) {
+  if (linkedOrder || request.quotations.some((quotation) => quotation.orders.length > 0)) {
     return NextResponse.json({ error: "Request ini sudah terhubung dengan pesanan dan tidak dapat dihapus." }, { status: 409 });
   }
 
-  await prisma.jastipRequest.delete({ where: { id } });
+  await prisma.$transaction(async (tx) => {
+    await tx.quotation.deleteMany({ where: { jastipRequestId: id } });
+    await tx.jastipRequest.delete({ where: { id } });
+  });
   revalidatePath("/admin");
   revalidatePath("/admin/requests");
   return NextResponse.json({ success: true });

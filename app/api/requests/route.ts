@@ -1,20 +1,8 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { normalizeIndonesianPhone } from "@/lib/phone";
-
-const createRequestNumber = () => `REQ-CN-${crypto.randomUUID().replaceAll("-", "").slice(0, 6).toUpperCase()}`;
-
-export async function POST(request: Request) {
-  const body = await request.json();
-  const name = String(body.customerName || "").trim();
-  const phone = normalizeIndonesianPhone(String(body.phone || ""));
-  const productName = String(body.productName || "").trim();
-  const email = String(body.email || "").trim() || null;
-  const quantity = Number(body.quantity || 0);
-  if (!name || !phone || !productName || !Number.isInteger(quantity) || quantity < 1) return NextResponse.json({ error: "Lengkapi nama, WhatsApp, nama barang, dan jumlah barang dengan benar." }, { status: 400 });
-  if (email && !/^\S+@\S+\.\S+$/.test(email)) return NextResponse.json({ error: "Format email tidak valid." }, { status: 400 });
-  const existing = await prisma.user.findFirst({ where: { phone } });
-  const customer = existing ? await prisma.user.update({ where: { id: existing.id }, data: { name, email: email ?? existing.email } }) : await prisma.user.create({ data: { name, phone, email } });
-  const created = await prisma.jastipRequest.create({ data: { requestNumber: createRequestNumber(), userId: customer.id, productName, productUrl: String(body.productUrl || "").trim() || null, countryCode: "CN", currencyCode: "CNY", quantity, variant: String(body.variant || "").trim() || null, notes: String(body.notes || "").trim() || null } });
-  return NextResponse.json({ requestNumber: created.requestNumber }, { status: 201 });
-}
+import { apiError } from "@/lib/api-error";
+import { PaymentError } from "@/lib/payments";
+const schema=z.object({customerName:z.string().trim().min(1).max(120),phone:z.string().max(32),email:z.string().email().max(254).or(z.literal("")),productName:z.string().trim().min(1).max(200),productUrl:z.string().url().refine(v=>/^https?:/.test(v)).or(z.literal("")),marketplace:z.string().max(120).optional(),originalPrice:z.coerce.number().finite().min(0).max(1e9).optional(),quantity:z.coerce.number().int().min(1).max(99),variant:z.string().max(200),notes:z.string().max(2000),imageUrl:z.string().max(3000000).optional()});
+export async function POST(request:Request){try{const input=schema.parse(await request.json());const phone=normalizeIndonesianPhone(input.phone);if(!phone)throw new PaymentError("Nomor WhatsApp tidak valid.");if(input.imageUrl&&!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(input.imageUrl))throw new PaymentError("Gambar barang tidak valid.");const created=await prisma.jastipRequest.create({data:{requestNumber:`REQ-CN-${crypto.randomUUID().replaceAll("-","").slice(0,12).toUpperCase()}`,customerName:input.customerName,customerPhone:phone,customerEmail:input.email||null,productName:input.productName,productUrl:input.productUrl||null,marketplace:input.marketplace,originalPrice:input.originalPrice||null,quantity:input.quantity,variant:input.variant,notes:input.notes,imageUrl:input.imageUrl||null,countryCode:"CN",currencyCode:"CNY"}});return NextResponse.json({requestNumber:created.requestNumber},{status:201});}catch(error){return apiError(error,"request-create");}}

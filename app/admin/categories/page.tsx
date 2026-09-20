@@ -1,0 +1,2 @@
+import { prisma } from "@/lib/prisma";import { requireAdminPage } from "@/lib/require-admin";import { CategoryManager } from "@/components/CategoryManager";
+export default async function Page(){await requireAdminPage();const categories=await prisma.category.findMany({include:{_count:{select:{products:true}}},orderBy:{name:"asc"}});return <div className="space-y-7"><div><p className="eyebrow">Katalog</p><h1 className="page-title">Kategori & subkategori</h1></div><CategoryManager categories={categories}/></div>;}

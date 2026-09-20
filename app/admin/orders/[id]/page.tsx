@@ -1,8 +1,13 @@
+import { ProcurementForm } from "@/components/ProcurementForm";
+import { orderFinance } from "@/lib/finance";
+import { formatIdr } from "@/lib/money";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPage } from "@/lib/require-admin";
 import { AdminOrderStatusUpdater } from "@/components/AdminOrderStatusUpdater";
+import { AdminOrderDeleteButton } from "@/components/AdminOrderDeleteButton";
+import { AdminPaymentDeleteButton } from "@/components/AdminPaymentDeleteButton";
 
 export default async function AdminOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdminPage();
@@ -13,15 +18,19 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
     include: {
       product: true,
       payment: true,
+      procurement: true, quotation: true,
       orderTracking: { orderBy: { createdAt: 'desc' } }
     }
   });
 
   if (!order) notFound();
+  const finance = orderFinance(order);
+  const procurement = order.procurement;
+  const initial = procurement ? { ...procurement, purchasePrice: Number(procurement.purchasePrice), exchangeRate: Number(procurement.exchangeRate), chinaShipping: Number(procurement.chinaShipping), internationalShipping: Number(procurement.internationalShipping), tax: Number(procurement.tax), additionalCost: Number(procurement.additionalCost), purchasedAt: procurement.purchasedAt?.toISOString().slice(0,10) || "" } : undefined;
 
   return (
     <div className="mx-auto max-w-4xl py-8">
-      <Link href="/admin/payments" className="text-sm font-semibold text-indigo-600 mb-6 inline-block">
+      <Link href="/admin/payments" className="text-sm font-semibold text-rose-600 mb-6 inline-block">
         ← Kembali
       </Link>
       
@@ -31,9 +40,12 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           <p className="text-sm text-slate-500 mt-1">Status saat ini: {order.orderStatus}</p>
         </div>
       </div>
+      <div className="mt-4 flex flex-wrap gap-3"><AdminOrderDeleteButton orderId={order.id} />{order.payment && <AdminPaymentDeleteButton paymentId={order.payment.id} />}</div>
 
+      <section className="panel mt-6"><h2 className="font-semibold">Pembayaran & ringkasan keuangan</h2><dl className="mt-4 grid gap-4 sm:grid-cols-3">{[["Pendapatan",finance.revenue],[finance.actual?"Biaya aktual":"Estimasi biaya",finance.cost],[finance.actual?"Laba kotor":"Estimasi laba",finance.profit],["Kode unik (bukan pendapatan)",order.payment?.uniqueCode||0],["Nominal transfer",order.payment?.transferAmount||0]].map(([label,value])=><div key={String(label)}><dt className="text-sm text-muted-foreground">{String(label)}</dt><dd className="mt-1 font-semibold">{formatIdr(value)}</dd></div>)}</dl>{(order.payment?.proofImageUrl||order.payment?.proofStorageKey)&&<a href={`/api/admin/payments/${order.payment!.id}/proof`} target="_blank" rel="noreferrer" className="mt-4 inline-block text-primary underline">Lihat bukti pembayaran</a>}</section>
+      {["VERIFIED","PAID"].includes(order.paymentStatus)&&!["CANCELLED","COMPLETED"].includes(order.orderStatus)&&<section id="procurement" className="mt-6"><ProcurementForm orderId={order.id} quantity={order.quantity} initial={initial}/></section>}
       <div className="mt-8 grid gap-6 lg:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="font-bold text-lg mb-4">Informasi Customer</h2>
           <dl className="space-y-3 text-sm">
             <div>
@@ -51,7 +63,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           </dl>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="font-bold text-lg mb-4">Produk yang Dipesan</h2>
           <div className="flex gap-4">
             {order.selectedImageSnapshot ? (
@@ -66,7 +78,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
               <p className="text-slate-500 mt-1">Qty: {order.quantity}</p>
               
               {(order.selectedColor || order.selectedSize || order.selectedModel) && (
-                <div className="mt-2 inline-block rounded-lg bg-indigo-50 px-2 py-1 text-xs font-semibold text-indigo-700">
+                <div className="mt-2 inline-block rounded-lg bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">
                   Varian: {[order.selectedColor, order.selectedSize, order.selectedModel].filter(Boolean).join(" · ")}
                 </div>
               )}
@@ -74,7 +86,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           </div>
         </section>
 
-        <section className="rounded-2xl border border-[#E8D8D1] bg-[#FFFDFC] p-6 shadow-sm">
+        <section className="rounded-xl border border-[#E8D8D1] bg-[#FFFDFC] p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-bold text-[#4B342F]">Alamat Pengiriman</h2>
           {order.addressLine ? (
             <dl className="space-y-3 text-sm text-[#4B342F]">
@@ -86,7 +98,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           ) : <p className="text-sm text-[#8A6F67]">Alamat pengiriman belum dilengkapi customer.</p>}
         </section>
 
-        <section className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="lg:col-span-2 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="font-bold text-lg mb-4">Update Status & Pengiriman</h2>
           <AdminOrderStatusUpdater 
             orderId={order.id} 

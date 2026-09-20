@@ -21,7 +21,7 @@ export function OrderStatusCard({ status, paymentStatus, rejectionReason, paymen
   return (
     <div className="flex flex-col gap-4">
       {isRejected && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-5">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-red-100 text-red-600">
               <Icon className="h-5 w-5" />
@@ -55,7 +55,7 @@ export function OrderStatusCard({ status, paymentStatus, rejectionReason, paymen
       )}
 
       {!isRejected && (
-        <div className={`rounded-2xl border p-5 ${currentStatus.color.bg.replace("bg-", "border-").replace("100", "200")} ${currentStatus.color.bg}`}>
+        <div className={`rounded-xl border p-5 ${currentStatus.color.bg.replace("bg-", "border-").replace("100", "200")} ${currentStatus.color.bg}`}>
           <div className="flex items-start gap-4">
             <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white ${currentStatus.color.text} shadow-sm`}>
               <Icon className="h-6 w-6" />

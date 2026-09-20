@@ -66,6 +66,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     featured: product.featured,
     variants: product.variants.map((v) => ({
       id: v.id,
+      status: v.status,
       name: v.name || "",
       colorName: v.colorName || "",
       colorHex: v.colorHex || "",
@@ -77,5 +78,5 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
     })),
   };
 
-  return <div className="mx-auto max-w-7xl"><Link href="/admin/products" className="text-sm font-semibold text-indigo-600">← Kembali</Link><h1 className="mt-4 text-3xl font-bold">Edit Produk</h1><p className="mt-2 text-sm text-slate-500">Kurs saat produk dibuat: Rp{snapshotRate.toLocaleString("id-ID")} · Kurs BI terbaru: Rp{latestRate.rate.toLocaleString("id-ID")}</p><AdminProductForm categories={categories} rate={latestRate} product={formProduct} /></div>;
+  return <div className="mx-auto max-w-7xl"><Link href="/admin/products" className="text-sm font-semibold text-rose-600">← Kembali</Link><h1 className="mt-4 text-3xl font-bold">Edit Produk</h1><p className="mt-2 text-sm text-slate-500">Kurs saat produk dibuat: Rp{snapshotRate.toLocaleString("id-ID")} · Kurs BI terbaru: Rp{latestRate.rate.toLocaleString("id-ID")}</p><AdminProductForm categories={categories} rate={latestRate} product={formProduct} /></div>;
 }

@@ -1,18 +1,21 @@
+import { OrderStatus } from "@prisma/client";
+import { ListFilters, ListPagination, type ListParams } from "@/components/ListFilters";
+import { listQuery } from "@/lib/list-query";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPage } from "@/lib/require-admin";
-import { Search } from "lucide-react";
 import { orderStatusMap } from "@/lib/order-status";
+import { AdminOrderDeleteButton } from "@/components/AdminOrderDeleteButton";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminOrdersPage() {
+export default async function AdminOrdersPage({ searchParams }: { searchParams: Promise<ListParams> }) {
   await requireAdminPage();
   
-  const orders = await prisma.order.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: { product: true }
-  });
+  const params = await searchParams;
+  const { createdAt, ...query } = listQuery(params);
+  const status = Object.values(OrderStatus).find(s => s === params.status);
+  const orders = await prisma.order.findMany({ ...query, where: { createdAt, orderStatus: status, ...(params.q ? { OR: [{orderNumber:{contains:params.q,mode:"insensitive"}},{customerName:{contains:params.q,mode:"insensitive"}},{productNameSnapshot:{contains:params.q,mode:"insensitive"}}] } : {}) } });
 
   return (
     <div className="mx-auto max-w-7xl py-8">
@@ -20,8 +23,8 @@ export default async function AdminOrdersPage() {
         <h1 className="text-3xl font-bold">Kelola Pesanan</h1>
       </div>
 
-      <div className="mt-8 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full text-left text-sm">
+      <div className="my-6"><ListFilters params={params} base="/admin/orders" statuses={Object.fromEntries(Object.entries(orderStatusMap).map(([k,v])=>[k,v.label]))}/></div><div className="mt-8 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table className="w-full min-w-[850px] text-left text-sm">
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
             <tr>
               <th className="px-6 py-4 font-semibold">Order ID / Tanggal</th>
@@ -33,7 +36,7 @@ export default async function AdminOrdersPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {orders.map((order) => {
+            {orders.slice(0,30).map((order) => {
               const statusInfo = orderStatusMap[order.orderStatus];
               return (
                 <tr key={order.id} className="hover:bg-slate-50">
@@ -55,17 +58,18 @@ export default async function AdminOrdersPage() {
                     Rp {Number(order.total).toLocaleString("id-ID")}
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold bg-${statusInfo?.color || "slate"}-50 text-${statusInfo?.color || "slate"}-700 border border-${statusInfo?.color || "slate"}-200`}>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-semibold ${statusInfo?.color.bg || "bg-secondary"} ${statusInfo?.color.text || "text-foreground"}`}>
                       {statusInfo?.label || order.orderStatus}
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     <Link 
                       href={`/admin/orders/${order.id}`}
-                      className="text-indigo-600 font-semibold hover:underline"
+                      className="text-rose-600 font-semibold hover:underline"
                     >
                       Detail
                     </Link>
+                    <AdminOrderDeleteButton orderId={order.id} />
                   </td>
                 </tr>
               );
@@ -79,7 +83,7 @@ export default async function AdminOrdersPage() {
               </tr>
             )}
           </tbody>
-        </table>
+        </table><ListPagination params={params} hasNext={orders.length>30}/>
       </div>
     </div>
   );

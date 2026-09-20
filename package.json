@@ -8,7 +8,9 @@
     "build": "prisma generate && next build",
     "prisma:deploy": "prisma migrate deploy",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test:workflow": "tsx scripts/test-workflow.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",

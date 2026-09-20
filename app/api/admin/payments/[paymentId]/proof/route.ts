@@ -14,6 +14,10 @@ export async function GET(_: Request, context: { params: Promise<{ paymentId: st
     if (error || !data?.signedUrl) return NextResponse.json({ error: "Bukti transfer tidak dapat diakses." }, { status: 502 });
     return NextResponse.redirect(data.signedUrl);
   }
+  if (payment.proofImageUrl?.startsWith("data:image/")) {
+    const match = payment.proofImageUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
+    if (match) return new Response(Buffer.from(match[2], "base64"), { headers: { "Content-Type": match[1], "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" } });
+  }
   if (payment.proofImageUrl?.startsWith("http")) return NextResponse.redirect(payment.proofImageUrl);
   return NextResponse.json({ error: "Bukti transfer belum tersedia." }, { status: 404 });
 }

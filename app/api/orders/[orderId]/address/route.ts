@@ -4,7 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { normalizeIndonesianPhone } from "@/lib/phone";
 
-const addressSchema = z.object({ recipientName: z.string().trim().min(1).max(120), recipientPhone: z.string().trim().min(1).max(32), addressLine: z.string().trim().min(10).max(500), city: z.string().trim().min(2).max(120), province: z.string().trim().min(2).max(120), postalCode: z.string().trim().min(3).max(16), shippingNote: z.string().trim().max(500).optional() });
+const addressSchema = z.object({ recipientName: z.string().trim().min(1).max(120), recipientPhone: z.string().trim().min(1).max(32), addressLine: z.string().trim().min(10).max(500), district: z.string().trim().min(2).max(120), city: z.string().trim().min(2).max(120), province: z.string().trim().min(2).max(120), postalCode: z.string().trim().min(3).max(16), shippingNote: z.string().trim().max(500).optional() });
 
 export async function PATCH(request: Request, context: { params: Promise<{ orderId: string }> }) {
   const { orderId } = await context.params;

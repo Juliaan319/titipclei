@@ -1,0 +1,1 @@
+export default function Loading(){return <div className="page-wrap space-y-5" role="status" aria-label="Memuat halaman"><div className="h-8 w-2/3 animate-pulse rounded bg-secondary"/><div className="grid gap-4 sm:grid-cols-3">{[1,2,3].map(i=><div key={i} className="h-48 animate-pulse rounded-xl bg-secondary"/>)}</div><span className="sr-only">Memuat?</span></div>;}

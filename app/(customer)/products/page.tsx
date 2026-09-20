@@ -1,97 +1,14 @@
 import Link from "next/link";
-import { Package2 } from "lucide-react";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-
+import { ProductCard } from "@/components/ProductCard";
 export const dynamic = "force-dynamic";
-
-export default async function ProductsPage() {
-  const products = await prisma.product.findMany({
-    where: { status: { not: "CLOSED" } },
-    include: { category: true, variants: { where: { status: "ACTIVE" } } },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return (
-    <main className="min-h-screen bg-[#F7F8FC] py-10">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <p className="text-sm font-bold uppercase tracking-wider text-[#5B3DF5]">
-          Katalog JastipHub
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#0F1B38]">
-          Semua Produk dari China
-        </h1>
-        <p className="mt-2 text-slate-600">
-          Temukan barang pilihan yang tersedia untuk jastip.
-        </p>
-        
-        {products.length ? (
-          <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {products.map((product) => {
-              const hasVariants = product.variants.length > 0;
-              const hasDifferentPrices = hasVariants && product.variants.some(v => Number(v.priceAdjustment || 0) > 0);
-              
-              return (
-                <Link
-                  href={`/products/${product.slug}`}
-                  key={product.id}
-                  className="group rounded-2xl border border-[#E6E8F0] bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-violet-200 hover:shadow-lg"
-                >
-                  {product.imageUrl ? (
-                    <img
-                      src={product.imageUrl}
-                      alt={product.name}
-                      className="aspect-[4/3] w-full rounded-xl object-cover"
-                    />
-                  ) : (
-                    <div className="grid aspect-[4/3] place-items-center rounded-xl bg-[#F1EEFF]">
-                      <Package2 className="h-14 w-14 text-violet-300" />
-                    </div>
-                  )}
-                  
-                  <p className="mt-5 text-xs font-bold uppercase tracking-wider text-[#5B3DF5]">
-                    {product.category?.name ?? "Produk"}
-                  </p>
-                  
-                  <h2 className="mt-2 min-h-12 font-bold text-[#0F1B38] group-hover:text-[#5B3DF5]">
-                    {product.name}
-                  </h2>
-                  
-                  <p className="mt-2 line-clamp-2 text-sm text-slate-500">
-                    {product.description}
-                  </p>
-                  
-                  <p className="mt-5 text-xl font-extrabold text-[#0F1B38]">
-                    {hasDifferentPrices && <span className="text-xs text-slate-500 font-normal mr-1 block">Mulai dari</span>}
-                    Rp {Number(product.sellingPrice).toLocaleString("id-ID")}
-                  </p>
-                  
-                  <span className="mt-4 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                    {product.status === "CLOSING_SOON"
-                      ? "Segera tutup"
-                      : "Open Jastip"}
-                  </span>
-                  
-                  <span className="mt-4 block rounded-xl bg-[#F1EEFF] py-2.5 text-center text-sm font-semibold text-[#5B3DF5] group-hover:bg-[#5B3DF5] group-hover:text-white">
-                    Lihat Produk
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="mt-7 grid min-h-72 place-items-center rounded-2xl border border-dashed border-[#E6E8F0] bg-white p-6 text-center">
-            <div>
-              <Package2 className="mx-auto h-10 w-10 text-slate-300" />
-              <h2 className="mt-4 font-bold text-[#0F1B38]">
-                Belum ada produk
-              </h2>
-              <p className="mt-2 text-sm text-slate-600">
-                Katalog akan segera diperbarui.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-    </main>
-  );
+export default async function ProductsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const params = await searchParams; const q = (params.q || "").slice(0,120); const page = Math.max(1, Math.min(10000, Number(params.page) || 1));
+  const min = Math.max(0, Number(params.min) || 0); const max = Math.max(min, Number(params.max) || 1000000000);
+  const where: Prisma.ProductWhereInput = { status: { not: "CLOSED" }, sellingPrice: { gte: min, lte: max }, ...(q ? { name: { contains: q, mode: "insensitive" } } : {}), ...(params.category ? { category: { OR: [{ id: params.category }, { parentId: params.category }] } } : {}) };
+  const sorts: Record<string, Prisma.ProductOrderByWithRelationInput> = { newest: { createdAt: "desc" }, popular: { popularity: "desc" }, low: { sellingPrice: "asc" }, high: { sellingPrice: "desc" } };
+  const [products, count, categories] = await Promise.all([prisma.product.findMany({ where, include: { category: true }, orderBy: [sorts[params.sort || ""] || sorts.newest, { id: "asc" }], take: 20, skip: (page-1)*20 }), prisma.product.count({ where }), prisma.category.findMany({ orderBy: { name: "asc" } })]);
+  const pageLink = (n: number) => `/products?${new URLSearchParams({ ...Object.fromEntries(Object.entries(params).filter((e): e is [string,string] => typeof e[1] === "string")), page: String(n) })}`;
+  return <main className="page-wrap"><p className="eyebrow">Katalog pilihan</p><h1 className="page-title">Temukan titipan berikutnya.</h1><p className="mt-3 max-w-xl text-muted-foreground">Produk di katalog adalah contoh barang yang bisa dititip. Kami membelinya dari China setelah pembayaran terverifikasi.</p><form className="panel mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-6"><label className="form-label lg:col-span-2">Cari produk<input name="q" defaultValue={q} placeholder="Nama barang?" className="field mt-2" /></label><label className="form-label">Kategori<select name="category" defaultValue={params.category || ""} className="field mt-2"><option value="">Semua kategori</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label className="form-label">Urutkan<select name="sort" defaultValue={params.sort || "newest"} className="field mt-2"><option value="newest">Terbaru</option><option value="popular">Terpopuler</option><option value="low">Harga terendah</option><option value="high">Harga tertinggi</option></select></label><label className="form-label">Harga minimum<input name="min" type="number" min={0} defaultValue={params.min} placeholder="Rp0" className="field mt-2" /></label><label className="form-label">Harga maksimum<input name="max" type="number" min={0} defaultValue={params.max} placeholder="Tanpa batas" className="field mt-2" /></label><div className="flex gap-3 sm:col-span-2 lg:col-span-6"><button className="btn-primary">Terapkan</button><Link href="/products" className="btn-secondary">Reset</Link></div></form><p className="my-5 text-sm text-muted-foreground">{count} produk ditemukan</p>{products.length ? <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4">{products.map(p => <ProductCard key={p.id} product={p} />)}</div> : <section className="panel py-14 text-center"><h2 className="font-semibold">Belum ada produk yang cocok.</h2><p className="mt-2 text-sm text-muted-foreground">Coba kata kunci lain, atau kirim link barang yang kamu inginkan.</p><Link className="btn-primary mt-5" href="/request">Request barang</Link></section>}<nav aria-label="Halaman katalog" className="mt-8 flex justify-between gap-4">{page>1 ? <Link href={pageLink(page-1)} className="btn-secondary">Sebelumnya</Link> : <span />}<span className="py-3 text-sm">Halaman {page} / {Math.max(1,Math.ceil(count/20))}</span>{page*20<count ? <Link href={pageLink(page+1)} className="btn-secondary">Berikutnya</Link> : <span />}</nav></main>;
 }

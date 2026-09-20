@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Toaster } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
   title: "Titip Clei | Jastip manis, belanja praktis",
@@ -12,7 +13,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="id"
       className="h-full antialiased"
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col"><Toaster>{children}</Toaster></body>
     </html>
   );
 }

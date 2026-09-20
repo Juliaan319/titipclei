@@ -143,6 +143,9 @@ model Category {
   name     String
   slug     String    @unique
   products Product[]
+  parentId String?
+  parent Category? @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children Category[] @relation("CategoryTree")
 }
 
 enum RequestStatus {
@@ -160,6 +163,10 @@ model JastipRequest {
   requestNumber String        @unique @default(cuid())
   productUrl    String?       @db.Text
   productName   String
+  marketplace   String?
+  customerName  String?
+  customerPhone String?
+  customerEmail String?
   countryCode   String
   currencyCode  String
   originalPrice Float?
@@ -300,6 +307,7 @@ model Order {
   recipientPhone        String?
   addressLine           String?        @db.Text
   city                  String?
+  district              String?
   province              String?
   postalCode            String?
   shippingNote          String?        @db.Text
@@ -324,6 +332,8 @@ model Order {
   product       Product?        @relation(fields: [productId], references: [id])
   orderTracking OrderTracking[]
   payment       Payment?
+  procurement   Procurement?
+  checkoutKey   String? @unique
 
   @@unique([quotationId])
 }
@@ -332,6 +342,11 @@ model Payment {
   id                 String        @id @default(cuid())
   orderId            String        @unique
   amount             Float
+  baseAmount         Decimal       @default(0) @db.Decimal(18, 0)
+  uniqueCode         Int           @default(0)
+  transferAmount     Decimal       @default(0) @db.Decimal(18, 0)
+  expiresAt          DateTime?
+  attempts           PaymentAttempt[]
   method             PaymentMethod @default(BANK_TRANSFER)
   bankName           String
   destinationAccount String
@@ -349,6 +364,53 @@ model Payment {
   updatedAt          DateTime      @updatedAt
 
   order Order @relation(fields: [orderId], references: [id])
+}
+
+// Immutable snapshots when a rejected/expired payment is reserved again.
+model PaymentAttempt {
+  id String @id @default(cuid())
+  paymentId String
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  baseAmount Decimal @db.Decimal(18, 0)
+  uniqueCode Int
+  transferAmount Decimal @db.Decimal(18, 0)
+  status PaymentStatus
+  proofImageUrl String? @db.Text
+  proofStorageKey String?
+  submittedAt DateTime?
+  rejectionReason String? @db.Text
+  createdAt DateTime @default(now())
+}
+
+enum ProcurementStatus {
+  PLANNED
+  PURCHASED
+  WAITING_SHIPMENT
+}
+
+model Procurement {
+  id String @id @default(cuid())
+  orderId String @unique
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  marketplace String
+  seller String?
+  productUrl String? @db.Text
+  currency String @default("CNY")
+  purchasePrice Decimal @db.Decimal(18, 2)
+  exchangeRate Decimal @db.Decimal(18, 4)
+  quantity Int
+  variant String?
+  chinaShipping Decimal @default(0) @db.Decimal(18, 0)
+  internationalShipping Decimal @default(0) @db.Decimal(18, 0)
+  tax Decimal @default(0) @db.Decimal(18, 0)
+  additionalCost Decimal @default(0) @db.Decimal(18, 0)
+  totalCost Decimal @db.Decimal(18, 0)
+  purchasedAt DateTime?
+  status ProcurementStatus @default(PLANNED)
+  externalOrderNumber String?
+  notes String? @db.Text
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
 }
 
 model OrderTracking {

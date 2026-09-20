@@ -30,40 +30,24 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       sourceDate: existing.exchangeRateDate,
       fetchedAt: existing.updatedAt,
     });
-    // We will delete existing variants and recreate them for simplicity
-    await prisma.productVariant.deleteMany({ where: { productId: id } });
-
-    const product = await prisma.product.update({
-      where: { id },
-      data: {
-        name: prepared.input.name,
-        description: prepared.input.description || null,
-        imageUrl: prepared.input.imageUrl || null,
-        brand: prepared.input.brand || null,
-        categoryId: prepared.input.categoryId || null,
-        ...prepared.data,
-        images: { deleteMany: {}, create: (prepared.input.imageUrls || (prepared.input.imageUrl ? [prepared.input.imageUrl] : [])).map((imageUrl: string, idx: number) => ({ imageUrl, sortOrder: idx, isPrimary: idx === 0 })) },
-        variants: {
-          create: prepared.input.variants?.map((v) => ({
-            name: v.name,
-            colorName: v.colorName,
-            colorHex: v.colorHex,
-            size: v.size,
-            model: v.model,
-            stock: Number(v.stock) || 0,
-            priceAdjustment: Number(v.priceAdjustment) || 0,
-            images: {
-              create: v.images?.map((url: string, idx: number) => ({
-                imageUrl: url,
-                sortOrder: idx,
-                isPrimary: idx === 0
-              })) || []
-            }
-          })) || []
-        }
-      },
+    const product = await prisma.$transaction(async tx => {
+      const owned = new Set((await tx.productVariant.findMany({ where: { productId: id }, select: { id: true } })).map(v => v.id));
+      const incoming = prepared.input.variants ?? [];
+      const retained = incoming.filter(v => v.id && owned.has(v.id)).map(v => v.id!);
+      await tx.productVariant.updateMany({ where: { productId: id, id: { notIn: retained } }, data: { status: "INACTIVE" } });
+      for (const [index, v] of incoming.entries()) {
+        const data = { name: v.name, colorName: v.colorName, colorHex: v.colorHex, size: v.size, model: v.model, status: v.status, priceAdjustment: v.priceAdjustment, sortOrder: index };
+        const images = (v.images || []).map((imageUrl, sortOrder) => ({ imageUrl, sortOrder, isPrimary: sortOrder === 0 }));
+        if (v.id && owned.has(v.id)) await tx.productVariant.update({ where: { id: v.id }, data: { ...data, images: { deleteMany: {}, create: images } } });
+        else await tx.productVariant.create({ data: { ...data, productId: id, images: { create: images } } });
+      }
+      return tx.product.update({ where: { id }, data: {
+        name: prepared.input.name, description: prepared.input.description || null, imageUrl: prepared.input.imageUrl || null,
+        brand: prepared.input.brand || null, categoryId: prepared.input.categoryId || null, ...prepared.data,
+        images: { deleteMany: {}, create: (prepared.input.imageUrls || []).map((imageUrl, sortOrder) => ({ imageUrl, sortOrder, isPrimary: sortOrder === 0 })) },
+      } });
     });
-    if (existing.imageUrl && existing.imageUrl !== product.imageUrl) await deleteStoredProductImage(existing.imageUrl).catch(() => undefined);
+    // Preserve image objects referenced by historical order snapshots.
     if (process.env.NODE_ENV === "development") {
       console.log("PRODUCT PRICING SAVE", {
         id: product.id,
@@ -87,7 +71,11 @@ export async function DELETE(_: Request, context: { params: Promise<{ id: string
   if (access.response) return access.response;
   try {
     const { id } = await context.params;
-    const product = await prisma.product.delete({ where: { id }, select: { id: true, slug: true, imageUrl: true } });
+    const product = await prisma.$transaction(async (tx) => {
+      // Keep historical order snapshots while removing the catalog relation.
+      await tx.order.updateMany({ where: { productId: id }, data: { productId: null, variantId: null } });
+      return tx.product.delete({ where: { id }, select: { id: true, slug: true, imageUrl: true } });
+    });
     await deleteStoredProductImage(product.imageUrl).catch(() => undefined);
     revalidateProductRoutes(product.slug);
     return NextResponse.json({ product, success: true });

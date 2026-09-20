@@ -49,23 +49,23 @@
 }
 
 :root {
-  --background: oklch(0.985 0.003 264);
-  --foreground: oklch(0.22 0.03 264);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #D98C97;
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.96 0.018 275);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.965 0.008 264);
-  --muted-foreground: oklch(0.54 0.025 264);
-  --accent: oklch(0.95 0.025 275);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #FFF9F5;
+  --foreground: #4B342F;
+  --card: #FFFDFC;
+  --card-foreground: #4B342F;
+  --popover: #FFFDFC;
+  --popover-foreground: #4B342F;
+  --primary: #A84F63;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F6E4E8;
+  --secondary-foreground: #704433;
+  --muted: #F3EBE5;
+  --muted-foreground: #80665F;
+  --accent: #F6E4E8;
+  --accent-foreground: #704433;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.012 264);
-  --input: oklch(0.9 0.015 264);
+  --border: #E8D8D1;
+  --input: #E8D8D1;
   --ring: #D98C97;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
@@ -123,7 +123,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    background-image: radial-gradient(circle at top, rgb(245 215 221 / 0.7), transparent 32rem);
+
   }
   html {
     @apply font-sans;
@@ -147,19 +147,20 @@
   }
 }
 
-/* Titip Clei admin surface: warm overlays keep existing data views cohesive while pages migrate. */
-[class*="bg-indigo-"], [class*="bg-violet-"] { background-color: #F8E8EB !important; }
-[class*="text-indigo-"], [class*="text-violet-"] { color: #C66C7C !important; }
-[class*="border-indigo-"], [class*="border-violet-"] { border-color: #EADBD4 !important; }
-[class*="bg-blue-"], [class*="bg-purple-"] { background-color: #F6E4E8 !important; }
-[class*="text-blue-"], [class*="text-purple-"] { color: #C86D7D !important; }
-[class*="border-blue-"], [class*="border-purple-"] { border-color: #E8D8D1 !important; }
-[class*="ring-indigo-"], [class*="ring-violet-"], [class*="ring-blue-"], [class*="focus:ring-indigo"], [class*="focus:ring-violet"], [class*="focus:ring-blue"] { --tw-ring-color: #D98392 !important; }
-.bg-indigo-600, .bg-\[\#5B3DF5\] { background-color: #D98591 !important; }
-.hover\:bg-indigo-700:hover, .hover\:bg-\[\#4930D8\]:hover { background-color: #C66C7C !important; }
-.text-\[\#0F1B38\], .text-slate-950, .text-slate-900 { color: #3B2925 !important; }
-.bg-\[\#F7F8FC\], .bg-slate-50 { background-color: #FFF9F5 !important; }
-.border-\[\#E6E8F0\], .border-slate-200 { border-color: #EADBD4 !important; }
-.text-\[\#5B3DF5\] { color: #C86D7D !important; }
-.bg-\[\#F1EEFF\] { background-color: #F6E4E8 !important; }
-a { color: inherit; }
+
+html { scrollbar-gutter: stable; scroll-padding-top: 6rem; }
+body { overflow-wrap: break-word; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled), [role="button"] { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .55; }
+:focus-visible { outline: 2px solid #A84F63; outline-offset: 3px; }
+@layer components {
+ .page-wrap { @apply mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12; }
+ .page-title { @apply mt-2 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl; }
+ .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.16em] text-primary; }
+ .panel { @apply min-w-0 rounded-xl border border-border bg-card p-5 sm:p-6; }
+ .form-label { @apply block text-sm font-medium text-foreground; }
+ .btn-primary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-[#8D3E50] disabled:opacity-50; }
+ .btn-secondary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary disabled:opacity-50; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

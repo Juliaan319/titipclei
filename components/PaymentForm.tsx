@@ -1,11 +1,40 @@
 "use client";
-import { ChangeEvent, useState } from "react";
-import { CheckCircle2, Clipboard, Upload } from "lucide-react";
-
-export function PaymentForm({ orderId, bankName, accountNumber }: { orderId: string; total: number; bankName: string; accountNumber: string; accountHolder: string }) {
-  const [proof, setProof] = useState<File | null>(null); const [preview, setPreview] = useState<string | null>(null); const [message, setMessage] = useState<string | null>(null); const [isSubmitting, setIsSubmitting] = useState(false);
-  const copy = async () => { await navigator.clipboard.writeText(accountNumber); setMessage("Nomor rekening disalin."); };
-  const chooseFile = (event: ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; if (file.size > 10 * 1024 * 1024) return setMessage("Ukuran bukti maksimal 10 MB."); setProof(file); setPreview(URL.createObjectURL(file)); };
-  const submit = async (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (!proof) return setMessage("Silakan upload bukti transfer terlebih dahulu."); setIsSubmitting(true); const formData = new FormData(event.currentTarget); formData.set("proof", proof); const response = await fetch(`/api/payments/${orderId}/proof`, { method: "POST", body: formData }); const data = await response.json(); setIsSubmitting(false); if (response.ok && data.redirectTo) window.location.assign(data.redirectTo); else setMessage(data.error || "Gagal mengirim bukti pembayaran."); };
-  return <form onSubmit={submit} className="mt-6 rounded-2xl border border-[#E6E8F0] bg-white p-6 shadow-sm"><h2 className="font-bold text-[#0F1B38]">Upload Bukti Transfer</h2><button type="button" onClick={copy} className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#F1EEFF] px-3 py-2 text-sm font-semibold text-[#5B3DF5]"><Clipboard className="h-4 w-4" />Salin Nomor Rekening</button><div className="mt-5 grid gap-4 sm:grid-cols-2"><label className="text-sm font-semibold text-slate-700">Nama Pengirim<input name="senderName" className="field mt-2" placeholder="Opsional" /></label><label className="text-sm font-semibold text-slate-700">Catatan Pembayaran<input name="notes" className="field mt-2" placeholder="Opsional" /></label></div><label className="mt-5 flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#E6E8F0] bg-[#F7F8FC] p-4 text-center hover:border-violet-300"><input type="file" accept="image/jpeg,image/png,image/webp" onChange={chooseFile} className="sr-only" />{preview ? <img src={preview} alt="Pratinjau bukti transfer" className="max-h-52 rounded-lg object-contain" /> : <><Upload className="h-6 w-6 text-[#5B3DF5]" /><span className="mt-2 text-sm font-semibold text-slate-700">Upload Bukti Transfer</span><span className="mt-1 text-xs text-slate-500">JPG, PNG, atau WEBP • maks. 10 MB</span></>}</label><button disabled={isSubmitting} className="mt-5 inline-flex h-12 w-full items-center justify-center rounded-xl bg-[#5B3DF5] font-semibold text-white hover:bg-[#4930D8] disabled:opacity-60">{isSubmitting ? "Mengirim..." : "Kirim Bukti Pembayaran"}</button>{message && <p className="mt-4 flex gap-2 rounded-xl bg-violet-50 p-3 text-sm text-[#4930D8]"><CheckCircle2 className="h-5 w-5 shrink-0" />{message}</p>}</form>;
+import { useEffect, useRef, useState } from "react";
+import { UploadCloud, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+export function PaymentForm({ orderId }: { orderId: string; accountNumber?: string }) {
+  const [proof, setProof] = useState<File | null>(null); const [preview, setPreview] = useState("");
+  const [saving, setSaving] = useState(false); const [error, setError] = useState(""); const input = useRef<HTMLInputElement>(null);
+  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); if (!proof || saving) return; setSaving(true); setError("");
+    try { const form = new FormData(e.currentTarget); form.set("proof", proof); const response = await fetch(`/api/payments/${orderId}/proof`, { method: "POST", body: form }); const data = await response.json(); if (!response.ok) throw new Error(data.error); window.location.assign(data.redirectTo); }
+    catch (err) { setError(err instanceof Error ? err.message : "Bukti gagal dikirim. Silakan coba lagi."); } finally { setSaving(false); }
+  }
+  const [dragging, setDragging] = useState(false);
+  function selectFile(file?: File) {
+    if (!file || saving) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || !file.size || file.size > 10 * 1024 * 1024) {
+      setError("Pilih JPG, JPEG, PNG, atau WEBP maksimal 10 MB, dengan isi gambar yang valid.");
+      if (input.current) input.current.value = "";
+      return;
+    }
+    setError(""); setProof(file); setPreview(URL.createObjectURL(file));
+  }
+  return <form onSubmit={submit} className="panel space-y-5"><h2 className="text-lg font-semibold">Unggah bukti transfer</h2><p className="text-sm leading-6 text-muted-foreground">Pastikan nominal transfer sesuai dengan total pembayaran.</p>
+    <label className="form-label">Nama pengirim<input name="senderName" maxLength={120} disabled={saving} className="field mt-2" /></label>
+    <label className="form-label">Catatan (opsional)<textarea name="notes" maxLength={500} disabled={saving} className="field mt-2 min-h-24" /></label>
+    <input ref={input} aria-label="Bukti pembayaran" type="file" accept="image/jpeg,image/png,image/webp" disabled={saving} className="hidden" onChange={e => selectFile(e.target.files?.[0])} />
+    <div onDragOver={e => { e.preventDefault(); if (!saving) setDragging(true); }} onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false); }} onDrop={e => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length > 1) { setError("Pilih satu bukti pembayaran saja."); return; } selectFile(e.dataTransfer.files[0]); }} className={`rounded-xl border-[1.5px] border-dashed transition-colors ${dragging ? "border-[#B74F68] bg-[#FFF7F7]" : "border-[#DDBCB8] bg-[#FFFDFC]"}`}>
+      {proof ? <div className="p-4"><div className="flex items-center gap-4"><img src={preview} alt="Pratinjau bukti pembayaran" className="h-24 w-24 shrink-0 rounded-lg bg-white object-contain" /><div className="min-w-0"><p className="break-words text-sm font-semibold">{proof.name}</p><p className="mt-1 text-sm text-muted-foreground">{(proof.size / 1024 / 1024).toLocaleString("id-ID", { maximumFractionDigits: 2 })} MB</p></div></div><div className="mt-4 flex gap-3"><button type="button" disabled={saving} className="btn-secondary" onClick={() => input.current?.click()}>Ganti</button><button type="button" disabled={saving} className="btn-secondary text-destructive" onClick={() => { setProof(null); setPreview(""); setError(""); if (input.current) input.current.value = ""; }}>Hapus</button></div>{dragging && <p role="status" className="mt-3 text-sm text-[#B74F68]">Lepaskan untuk mengganti gambar</p>}</div> : <button type="button" disabled={saving} onClick={() => input.current?.click()} className="group flex min-h-[180px] w-full cursor-pointer flex-col items-center justify-center rounded-xl p-5 text-center transition-colors hover:bg-[#FFF7F7] hover:ring-1 hover:ring-[#B74F68] focus-visible:outline-2 focus-visible:outline-[#B74F68]"><UploadCloud className="mb-3 size-8 text-[#AA7B78] transition-colors group-hover:text-[#B74F68]" /><span className="text-base font-semibold">{dragging ? "Lepaskan gambar di sini" : "Unggah bukti transfer"}</span><span className="mt-2 text-sm text-muted-foreground">Klik untuk memilih file atau tarik file ke area ini</span><span className="mt-3 text-sm text-muted-foreground">JPG, JPEG, PNG, WEBP &bull; maks. 10 MB</span></button>}
+    </div>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}<button disabled={saving || !proof} className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#B74F68] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#A8435B] disabled:cursor-not-allowed disabled:opacity-50">{saving ? "Mengunggah…" : "Kirim bukti pembayaran"}</button></form>;
+}
+export function ReservePaymentButton({ token }: { token: string }) {
+  const router = useRouter(); const [saving, setSaving] = useState(false); const [error, setError] = useState("");
+  async function reserve() { setSaving(true); setError(""); try { const res = await fetch(`/api/payments/${token}/reserve`, { method: "POST" }); const data = await res.json(); if (!res.ok) throw new Error(data.error); router.refresh(); } catch (err) { setError(err instanceof Error ? err.message : "Silakan coba lagi."); } finally { setSaving(false); } }
+  return <div><button className="btn-primary" disabled={saving} onClick={reserve}>{saving ? "Menyiapkan…" : "Buat nominal pembayaran"}</button>{error && <p role="alert" className="mt-3 text-destructive">{error}</p>}</div>;
+}
+export function CopyButton({ value, label = "Salin nomor rekening" }: { value: string; label?: string }) {
+  const [message, setMessage] = useState("");
+  return <div><button type="button" className="btn-secondary mt-3" onClick={async () => { try { await navigator.clipboard.writeText(value); setMessage("Tersalin"); } catch { setMessage("Tidak dapat menyalin. Salin nomor secara manual."); } }}>{message === "Tersalin" ? <><Check size={16} /> Tersalin</> : label}</button><span role="status" className="mt-2 block text-sm">{message}</span></div>;
 }

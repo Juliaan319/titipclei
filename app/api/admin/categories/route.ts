@@ -1,0 +1,9 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { requireAdminApi } from "@/lib/require-admin";
+import { apiError } from "@/lib/api-error";
+import { PaymentError } from "@/lib/payments";
+const schema=z.object({id:z.string().optional(),name:z.string().trim().min(1).max(100),parentId:z.string().optional()});
+export async function POST(request:Request){const access=await requireAdminApi();if(access.response)return access.response;try{const input=schema.parse(await request.json());await prisma.$transaction(async tx=>{if(input.parentId){const parent=await tx.category.findUnique({where:{id:input.parentId},include:{children:true}});if(!parent||parent.parentId||parent.id===input.id)throw new PaymentError("Pilih kategori utama yang valid.");if(input.id&&await tx.category.count({where:{parentId:input.id}}))throw new PaymentError("Kategori dengan subkategori tidak dapat dipindahkan.");}const data={name:input.name,parentId:input.parentId||null};if(input.id)await tx.category.update({where:{id:input.id},data});else await tx.category.create({data:{...data,slug:`${input.name.toLowerCase().replace(/[^a-z0-9]+/g,"-")}-${crypto.randomUUID().slice(0,6)}`}});});return NextResponse.json({success:true});}catch(error){return apiError(error,"category-save");}}
+export async function DELETE(request:Request){const access=await requireAdminApi();if(access.response)return access.response;try{const {id}=z.object({id:z.string()}).parse(await request.json());const category=await prisma.category.findUnique({where:{id},include:{_count:{select:{products:true,children:true}}}});if(!category||category._count.products||category._count.children)throw new PaymentError("Pindahkan produk dan subkategori sebelum menghapus kategori.");await prisma.category.delete({where:{id}});return NextResponse.json({success:true});}catch(error){return apiError(error,"category-delete");}}

@@ -1,0 +1,6 @@
+import Link from "next/link";
+import { Package2, ArrowUpRight } from "lucide-react";
+import { formatIdr } from "@/lib/money";
+export function ProductCard({ product }: { product: { slug: string; name: string; imageUrl: string | null; sellingPrice: unknown; category: { name: string } | null } }) {
+  return <Link href={`/products/${product.slug}`} className="group min-w-0 overflow-hidden rounded-lg border bg-card transition-colors hover:border-primary"><div className="grid aspect-square place-items-center overflow-hidden bg-secondary">{product.imageUrl ? <img loading="lazy" src={product.imageUrl} alt={product.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" /> : <Package2 className="h-12 w-12 text-primary/40" />}</div><div className="p-3 sm:p-4"><p className="text-xs text-muted-foreground">{product.category?.name || "Pilihan Titip Clei"}</p><h3 className="mt-2 line-clamp-2 min-h-10 text-sm font-semibold sm:text-base">{product.name}</h3><p className="mt-3 font-semibold">{formatIdr(product.sellingPrice)}</p><span className="mt-4 flex items-center justify-between border-t pt-3 text-xs text-primary">Lihat pilihan <ArrowUpRight className="h-4 w-4" /></span></div></Link>;
+}

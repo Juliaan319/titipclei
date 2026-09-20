@@ -40,14 +40,14 @@ export default function TrackPage() {
     else setResult(body.order);
   };
   return (
-    <main className="min-h-screen bg-[#F7F8FC] py-12">
+    <main className="min-h-screen bg-[#FFF9F5] py-12">
       <div className="mx-auto max-w-2xl px-4">
         {!result && (
-          <div className="rounded-2xl border border-[#E6E8F0] bg-white p-7 shadow-sm">
-            <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#F1EEFF] text-[#5B3DF5]">
+          <div className="rounded-xl border border-[#E8D8D1] bg-white p-7 shadow-sm">
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-[#F6E4E8] text-[#A84F63]">
               <PackageCheck className="h-5 w-5" />
             </span>
-            <h1 className="mt-5 text-3xl font-bold text-[#0F1B38]">
+            <h1 className="mt-5 text-3xl font-bold text-[#4B342F]">
               Cek Status Pesanan
             </h1>
             <p className="mt-2 text-slate-600">
@@ -75,7 +75,7 @@ export default function TrackPage() {
               </label>
               <button
                 disabled={loading}
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#5B3DF5] font-semibold text-white"
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#A84F63] font-semibold text-white"
               >
                 <Search className="h-4 w-4" />
                 {loading ? "Memeriksa..." : "Cek Pesanan"}
@@ -92,12 +92,12 @@ export default function TrackPage() {
         {result && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h1 className="text-2xl font-bold text-[#0F1B38]">
+              <h1 className="text-2xl font-bold text-[#4B342F]">
                 {result.orderNumber}
               </h1>
               <button
                 onClick={() => setResult(null)}
-                className="text-sm font-medium text-indigo-600 hover:underline"
+                className="text-sm font-medium text-rose-600 hover:underline"
               >
                 Cek Resi Lain
               </button>
@@ -109,8 +109,8 @@ export default function TrackPage() {
               orderNumber={result.orderNumber}
             />
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="font-bold text-[#0F1B38]">Detail Pesanan</h2>
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="font-bold text-[#4B342F]">Detail Pesanan</h2>
               <dl className="mt-4 space-y-4 text-sm">
                 <div>
                   <dt className="text-slate-500">Pelanggan</dt>
@@ -151,14 +151,14 @@ export default function TrackPage() {
               </dl>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="font-bold text-[#0F1B38]">Proses Pesanan</h2>
+            <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="font-bold text-[#4B342F]">Proses Pesanan</h2>
               <ProgressTimeline currentStatus={result.orderStatus} />
             </div>
 
             {result.tracking && result.tracking.length > 0 && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 className="font-bold text-[#0F1B38]">Riwayat Status</h2>
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 className="font-bold text-[#4B342F]">Riwayat Status</h2>
                 <div className="mt-5 space-y-6">
                   {result.tracking.map((item, index) => {
                     const statusInfo = getOrderStatus(item.status);

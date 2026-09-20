@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Loader2 } from "lucide-react";
 
 export function AdminOrderStatusUpdater({ 
@@ -21,10 +22,13 @@ export function AdminOrderStatusUpdater({
   const [location, setLocation] = useState("");
   
   const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
-  const handleUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleUpdate = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (e && status === "CANCELLED") { setConfirming(true); return; }
     setLoading(true);
     setError("");
 
@@ -51,7 +55,7 @@ export function AdminOrderStatusUpdater({
       setTrackingNumber("");
       setLocation("");
       router.refresh();
-      alert("Status berhasil diupdate!");
+      setNotice("Status berhasil diperbarui."); setConfirming(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Terjadi kesalahan");
     } finally {
@@ -60,7 +64,7 @@ export function AdminOrderStatusUpdater({
   };
 
   return (
-    <div className="grid lg:grid-cols-2 gap-8">
+    <div className="grid lg:grid-cols-2 gap-8"><ConfirmDialog open={confirming} onClose={() => setConfirming(false)} onConfirm={() => void handleUpdate()} busy={loading} title="Batalkan pesanan?" description="Pesanan akan dibatalkan dan kode pembayaran aktif dilepas. Pembayaran terverifikasi harus ditangani melalui pengembalian dana secara terpisah." />{notice && <p role="status">{notice}</p>}
       <div>
         <form onSubmit={handleUpdate} className="space-y-4">
           <label className="block text-sm font-semibold">
@@ -70,12 +74,12 @@ export function AdminOrderStatusUpdater({
               onChange={(e) => setStatus(e.target.value)} 
               className="field mt-2 w-full"
             >
-              <option value="WAITING_VERIFICATION">Menunggu Verifikasi Pembayaran</option>
+              <option value={currentStatus} disabled>{currentStatus}</option>
               <option value="PURCHASING">Barang Sedang Dipesan</option>
               <option value="PURCHASED">Barang Sudah Dibeli</option>
               <option value="CHECKING_ITEM">Menunggu Pengiriman</option>
               <option value="INTERNATIONAL_SHIPPING">Dalam Pengiriman ke Indonesia</option>
-              <option value="DOMESTIC_SHIPPING">Dalam Pengiriman ke Alamat</option>
+              <option value="ARRIVED_INDONESIA">Tiba di Indonesia</option><option value="DOMESTIC_SHIPPING">Dalam Pengiriman ke Alamat</option>
               <option value="COMPLETED">Selesai</option>
               <option value="CANCELLED">Dibatalkan</option>
             </select>
@@ -127,7 +131,7 @@ export function AdminOrderStatusUpdater({
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white disabled:opacity-60"
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-3 font-semibold text-white disabled:opacity-60"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Update Status
@@ -143,7 +147,7 @@ export function AdminOrderStatusUpdater({
           ) : (
             trackingHistory.map((track) => (
               <div key={track.id} className="rounded-xl border border-slate-200 p-4 text-sm relative">
-                <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl bg-indigo-500" />
+                <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl bg-rose-500" />
                 <p className="font-bold">{track.status}</p>
                 <p className="text-xs text-slate-500 mt-1">
                   {new Date(track.createdAt).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}

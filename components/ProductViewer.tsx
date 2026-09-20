@@ -1,5 +1,6 @@
 "use client";
 
+import { variantsForColor, sizesForColor } from "@/lib/variants";
 import { useState } from "react";
 import Link from "next/link";
 import { Package2, ChevronLeft, ChevronRight } from "lucide-react";
@@ -17,6 +18,7 @@ type VariantData = {
 };
 
 type ProductData = {
+  unavailable?: boolean;
   id: string;
   slug: string;
   name: string;
@@ -30,68 +32,41 @@ type ProductData = {
 };
 
 export function ProductViewer({ product }: { product: ProductData }) {
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
-  const [imageIndex, setImageIndex] = useState(0);
-
-  const selectedVariant = product.variants.find((v) => v.id === selectedVariantId) || null;
-
-  // Decide current price
-  const currentPrice = Number(product.sellingPrice) + (selectedVariant ? Number(selectedVariant.priceAdjustment) : 0);
-
-  // Decide main image
-  const gallery = selectedVariant?.images.length ? selectedVariant.images.map((image) => image.imageUrl) : (product.images.length ? product.images : product.imageUrl ? [product.imageUrl] : []);
-  const mainImage = gallery[imageIndex] || gallery[0] || null;
-  const moveImage = (direction: number) => setImageIndex((current) => gallery.length ? (current + direction + gallery.length) % gallery.length : 0);
-
-  // Derive unique options
-  const colors = Array.from(new Map(product.variants.filter((v) => v.colorName).map((v) => [v.colorName, { name: v.colorName, hex: v.colorHex }])).values());
-  const sizes = Array.from(new Set(product.variants.map((v) => v.size).filter(Boolean)));
-  const models = Array.from(new Set(product.variants.map((v) => v.model).filter(Boolean)));
-
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
-
-  // When options change, try to match a variant
-  const handleSelect = (type: "color" | "size" | "model", val: string) => {
-    const newColor = type === "color" ? val : selectedColor;
-    const newSize = type === "size" ? val : selectedSize;
-    const newModel = type === "model" ? val : selectedModel;
-    
-    if (type === "color") setSelectedColor(val);
-    if (type === "size") setSelectedSize(val);
-    if (type === "model") setSelectedModel(val);
-
-    const matchingVariant = product.variants.find(
-      (v) =>
-        (newColor ? v.colorName === newColor : true) &&
-        (newSize ? v.size === newSize : true) &&
-        (newModel ? v.model === newModel : true)
-    );
-
-    if (matchingVariant) {
-      setSelectedVariantId(matchingVariant.id);
-    } else {
-      setSelectedVariantId(null);
-    }
-  };
-
-  const isStockEmpty = selectedVariant ? selectedVariant.stock <= 0 : false;
-  
-  // URL to order page: pass variantId as query param if selected
-  const orderUrl = selectedVariantId ? `/order/${product.slug}?variant=${selectedVariantId}` : `/order/${product.slug}`;
-
-  // If variants exist but none selected, should we disable?
+  const [imageIndex, setImageIndex] = useState(0);
+  const colors = Array.from(new Map(product.variants.filter(v => v.colorName).map(v => [v.colorName, { name: v.colorName, hex: v.colorHex }])).values());
+  const colorVariants = variantsForColor(product.variants, selectedColor);
+  const sizes = sizesForColor(product.variants, selectedColor);
+  const sizeVariants = colorVariants.filter(v => sizes.length ? v.size === selectedSize : true);
+  const models = Array.from(new Set(sizeVariants.map(v => v.model).filter(Boolean)));
+  const complete = (!colors.length || selectedColor) && (!sizes.length || selectedSize) && (!models.length || selectedModel);
+  const selectedVariant = complete ? sizeVariants.find(v => !models.length || v.model === selectedModel) ?? null : null;
+  const selectedVariantId = selectedVariant?.id;
+  const currentPrice = product.sellingPrice + Number(selectedVariant?.priceAdjustment || 0);
+  const colorImages = colorVariants.flatMap(v => v.images.map(i => i.imageUrl));
+  const gallery = [...new Set(selectedVariant?.images.length ? selectedVariant.images.map(i => i.imageUrl) : colorImages.length ? colorImages : product.images.length ? product.images : product.imageUrl ? [product.imageUrl] : [])];
+  const mainImage = gallery[imageIndex] || gallery[0];
+  const moveImage = (direction: number) => setImageIndex(i => gallery.length ? (i + direction + gallery.length) % gallery.length : 0);
+  function handleSelect(type: "color" | "size" | "model", value: string) {
+    setImageIndex(0);
+    if (type === "color") { setSelectedColor(value); setSelectedSize(null); setSelectedModel(null); }
+    if (type === "size") { setSelectedSize(value); setSelectedModel(null); }
+    if (type === "model") setSelectedModel(value);
+  }
+  const isStockEmpty = false;
   const hasVariants = product.variants.length > 0;
-  const isOrderDisabled = isStockEmpty || (hasVariants && !selectedVariantId);
+  const isOrderDisabled = product.unavailable || (hasVariants && !selectedVariant);
+  const orderUrl = selectedVariantId ? `/order/${product.slug}?variant=${selectedVariantId}` : `/order/${product.slug}`;
 
   return (
     <div className="grid lg:grid-cols-2">
       <section className="flex min-h-[400px] flex-col items-center justify-center bg-[#F7EFE8] p-6 lg:min-h-full">
         {mainImage ? (
-          <div className="relative w-full" onTouchStart={(event) => { (event.currentTarget as HTMLElement).dataset.startX = String(event.touches[0].clientX); }} onTouchEnd={(event) => { const start = Number((event.currentTarget as HTMLElement).dataset.startX); if (Math.abs(event.changedTouches[0].clientX - start) > 40) moveImage(event.changedTouches[0].clientX < start ? 1 : -1); }}><img src={mainImage} alt={`${product.name} foto ${imageIndex + 1}`} className="h-[360px] w-full rounded-2xl object-contain" />{gallery.length > 1 && <><button aria-label="Foto sebelumnya" onClick={() => moveImage(-1)} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-[#6F4A45] shadow"><ChevronLeft /></button><button aria-label="Foto berikutnya" onClick={() => moveImage(1)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-[#6F4A45] shadow"><ChevronRight /></button></>}</div>
+          <div className="relative w-full" onTouchStart={(event) => { (event.currentTarget as HTMLElement).dataset.startX = String(event.touches[0].clientX); }} onTouchEnd={(event) => { const start = Number((event.currentTarget as HTMLElement).dataset.startX); if (Math.abs(event.changedTouches[0].clientX - start) > 40) moveImage(event.changedTouches[0].clientX < start ? 1 : -1); }}><img src={mainImage} alt={`${product.name} foto ${imageIndex + 1}`} className="h-[360px] w-full rounded-xl object-contain" />{gallery.length > 1 && <><button aria-label="Foto sebelumnya" onClick={() => moveImage(-1)} className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-[#6F4A45] shadow"><ChevronLeft /></button><button aria-label="Foto berikutnya" onClick={() => moveImage(1)} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/90 p-2 text-[#6F4A45] shadow"><ChevronRight /></button></>}</div>
         ) : (
-          <Package2 className="h-24 w-24 text-violet-300" />
+          <Package2 className="h-24 w-24 text-rose-300" />
         )}
         {gallery.length > 1 && (
           <div className="mt-4 flex max-w-full gap-2 overflow-x-auto">
@@ -103,10 +78,10 @@ export function ProductViewer({ product }: { product: ProductData }) {
       </section>
 
       <section className="p-7 sm:p-10">
-        <p className="text-sm font-bold uppercase tracking-wider text-[#5B3DF5]">
+        <p className="text-sm font-bold uppercase tracking-wider text-[#A84F63]">
           {product.category?.name ?? "Produk"}
         </p>
-        <h1 className="mt-3 text-3xl font-extrabold text-[#0F1B38]">{product.name}</h1>
+        <h1 className="mt-3 text-3xl font-extrabold text-[#4B342F]">{product.name}</h1>
         {product.brand && <p className="mt-2 text-slate-500">{product.brand}</p>}
 
         <p className="mt-6 leading-7 text-slate-600 whitespace-pre-wrap">
@@ -126,7 +101,7 @@ export function ProductViewer({ product }: { product: ProductData }) {
                       onClick={() => handleSelect("color", c.name as string)}
                       className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
                         selectedColor === c.name
-                          ? "border-[#5B3DF5] bg-violet-50 text-[#5B3DF5]"
+                          ? "border-[#A84F63] bg-rose-50 text-[#A84F63]"
                           : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
                       }`}
                     >
@@ -153,7 +128,7 @@ export function ProductViewer({ product }: { product: ProductData }) {
                       onClick={() => handleSelect("size", s as string)}
                       className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
                         selectedSize === s
-                          ? "border-[#5B3DF5] bg-violet-50 text-[#5B3DF5]"
+                          ? "border-[#A84F63] bg-rose-50 text-[#A84F63]"
                           : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
                       }`}
                     >
@@ -174,7 +149,7 @@ export function ProductViewer({ product }: { product: ProductData }) {
                       onClick={() => handleSelect("model", m as string)}
                       className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
                         selectedModel === m
-                          ? "border-[#5B3DF5] bg-violet-50 text-[#5B3DF5]"
+                          ? "border-[#A84F63] bg-rose-50 text-[#A84F63]"
                           : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
                       }`}
                     >
@@ -190,18 +165,18 @@ export function ProductViewer({ product }: { product: ProductData }) {
         <div className="mt-8 border-y border-slate-100 py-5 flex items-end justify-between">
           <div>
             <p className="text-sm text-slate-500">Harga</p>
-            <p className="mt-1 text-3xl font-extrabold text-[#0F1B38]">
+            <p className="mt-1 text-3xl font-extrabold text-[#4B342F]">
               Rp {currentPrice.toLocaleString("id-ID")}
             </p>
           </div>
           {selectedVariant && (
             <div className="text-right">
-              <p className="text-sm font-semibold text-slate-700">Sisa Stok: {selectedVariant.stock}</p>
+              <p className="text-sm font-semibold text-slate-700">Dibeli sesuai pesanan</p>
             </div>
           )}
         </div>
 
-        <div className="mt-7 flex flex-col space-y-3">
+        <div className="mt-7 flex flex-col space-y-3">{product.unavailable && <p className="text-sm text-destructive">Varian sedang tidak tersedia dari penjual.</p>}
           {hasVariants && !selectedVariantId && (
             <p className="text-sm text-amber-600 font-medium">Pilih varian terlebih dahulu untuk memesan.</p>
           )}
@@ -213,7 +188,7 @@ export function ProductViewer({ product }: { product: ProductData }) {
             className={`inline-flex items-center justify-center rounded-xl px-5 py-3 font-semibold transition ${
               isOrderDisabled
                 ? "bg-slate-200 text-slate-400 cursor-not-allowed pointer-events-none"
-                : "bg-[#5B3DF5] text-white hover:bg-violet-700 shadow-md shadow-violet-200"
+                : "bg-[#A84F63] text-white hover:bg-rose-700 shadow-md shadow-rose-200"
             }`}
           >
             Ajukan Pesanan

@@ -1,44 +1,13 @@
 import Link from "next/link";
-import { Download, Package, ReceiptText, ShoppingCart, Wallet } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { requireAdminPage } from "@/lib/require-admin";
-
-const rupiah = (value: number) => `Rp${(Number.isFinite(value) ? Math.round(value) : 0).toLocaleString("id-ID")}`;
-
-async function dashboardQuery<T>(operation: string, query: () => Promise<T>) {
-  try {
-    return await query();
-  } catch (error) {
-    const prismaError = error as { name?: string; message?: string; code?: string };
-    // Safe production diagnostics: never include connection strings, credentials, or user input.
-    console.error("ADMIN_DASHBOARD_LOAD_ERROR", {
-      route: "/admin",
-      operation,
-      name: prismaError?.name ?? "UnknownError",
-      message: prismaError?.message ?? "Unknown error",
-      code: prismaError?.code,
-    });
-    throw error;
-  }
-}
-
-export default async function AdminDashboard() {
-  await requireAdminPage();
-  const [products, newRequests, pendingPayments, activeOrders, acceptedQuotations, revenue, paidOrders, requests] = await Promise.all([
-    dashboardQuery("product-count", () => prisma.product.count()),
-    dashboardQuery("pending-request-count", () => prisma.jastipRequest.count({ where: { status: "PENDING_REVIEW" } })),
-    dashboardQuery("pending-payment-count", () => prisma.payment.count({ where: { status: "WAITING_VERIFICATION" } })),
-    dashboardQuery("active-order-count", () => prisma.order.count({ where: { orderStatus: { notIn: ["COMPLETED", "CANCELLED"] } } })),
-    dashboardQuery("accepted-quotation-count", () => prisma.quotation.count({ where: { status: "ACCEPTED" } })),
-    dashboardQuery("revenue-sum", () => prisma.order.aggregate({ _sum: { total: true }, where: { paymentStatus: { in: ["PAID", "VERIFIED"] }, orderStatus: { not: "CANCELLED" }, payment: { is: { status: { in: ["PAID", "VERIFIED"] } } } } })),
-    dashboardQuery("paid-order-profit-snapshots", () => prisma.order.findMany({ where: { paymentStatus: { in: ["PAID", "VERIFIED"] }, orderStatus: { not: "CANCELLED" }, payment: { is: { status: { in: ["PAID", "VERIFIED"] } } } }, select: { profitSnapshot: true } })),
-    dashboardQuery("latest-requests", () => prisma.jastipRequest.findMany({ take: 5, orderBy: { createdAt: "desc" }, include: { user: true } })),
-  ]);
-  const omzet = Number(revenue._sum.total);
-  const profit = paidOrders.reduce((total, order) => {
-    const value = Number(order.profitSnapshot);
-    return Number.isFinite(value) ? total + value : total;
-  }, 0);
-  const cards = [["Total Produk", String(products), Package], ["Request Baru", String(newRequests), ReceiptText], ["Penawaran Diterima", String(acceptedQuotations), ReceiptText], ["Pembayaran Pending", String(pendingPayments), Wallet], ["Pesanan Aktif", String(activeOrders), ShoppingCart], ["Omzet", rupiah(omzet), Wallet], ["Profit", rupiah(profit), Wallet]] as const;
-  return <div className="mx-auto max-w-7xl space-y-7"><div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-sm font-semibold text-indigo-600">Dashboard admin</p><h1 className="mt-1 text-3xl font-bold text-slate-950">Ringkasan JastipHub</h1><p className="mt-2 text-sm text-slate-500">Data bisnis aktual dari database.</p></div><a href="/api/admin/reports/export" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#D98392] px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-[#D98392]/25 transition-colors hover:bg-[#C86D7D] active:bg-[#B95F70] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EAB5C0] focus-visible:ring-offset-2"><Download className="h-4 w-4 text-white" />Unduh Laporan CSV</a></div><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{cards.map(([title, value, Icon]) => <article key={title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex items-center justify-between"><p className="text-sm text-slate-500">{title}</p><Icon className="h-5 w-5 text-indigo-600" /></div><p className="mt-4 text-2xl font-bold text-slate-950">{value}</p></article>)}</div><section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex items-center justify-between"><div><h2 className="font-bold text-slate-950">Request terbaru</h2><p className="mt-1 text-sm text-slate-500">Request yang benar-benar masuk dari pelanggan.</p></div><Link href="/admin/requests" className="text-sm font-semibold text-indigo-600">Lihat semua</Link></div>{requests.length ? <div className="mt-5 divide-y divide-slate-100">{requests.map((request) => <Link key={request.id} href={`/admin/requests/${request.id}`} className="flex items-center justify-between gap-4 py-4 hover:bg-slate-50"><div><p className="font-semibold">{request.productName}</p><p className="text-sm text-slate-500">{request.user?.name || "Pelanggan"} · {request.requestNumber}</p></div><span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">{request.status === "PENDING_REVIEW" ? "Baru" : request.status}</span></Link>)}</div> : <p className="py-12 text-center text-sm text-slate-500">Belum ada request barang.</p>}</section><section className="grid gap-3 sm:grid-cols-3"><Link href="/admin/products/new" className="rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold hover:border-indigo-200 hover:text-indigo-600">Tambah Produk</Link><Link href="/admin/requests?status=PENDING_REVIEW" className="rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold hover:border-indigo-200 hover:text-indigo-600">Review Request</Link><Link href="/admin/payments?status=WAITING_VERIFICATION" className="rounded-xl border border-slate-200 bg-white p-4 text-sm font-semibold hover:border-indigo-200 hover:text-indigo-600">Verifikasi Pembayaran</Link></section></div>;
+import { formatIdr } from "@/lib/money";
+import { orderFinance } from "@/lib/finance";
+export default async function Dashboard(){
+ await requireAdminPage();
+ const [orders,requests,payments,quotations,paid] = await Promise.all([prisma.order.groupBy({by:["orderStatus"],_count:true}),prisma.jastipRequest.groupBy({by:["status"],_count:true}),prisma.payment.groupBy({by:["status"],_count:true}),prisma.quotation.groupBy({by:["status"],_count:true}),prisma.order.findMany({where:{paymentStatus:{in:["VERIFIED","PAID"]},orderStatus:{not:"CANCELLED"}},include:{procurement:true,quotation:true}})]);
+ const count=(statuses:string[])=>orders.filter(o=>statuses.includes(o.orderStatus)).reduce((n,o)=>n+o._count,0);
+ const totals=paid.map(orderFinance).reduce((a,o)=>({revenue:a.revenue+o.revenue,cost:a.cost+o.cost,profit:a.profit+o.profit,estimated:a.estimated+(o.actual?0:1)}),{revenue:0,cost:0,profit:0,estimated:0});
+ const cards=[["Total pesanan",orders.reduce((n,o)=>n+o._count,0),"/admin/orders"],["Menunggu pembayaran",count(["WAITING_PAYMENT"]),"/admin/orders?status=WAITING_PAYMENT"],["Perlu verifikasi",count(["WAITING_VERIFICATION"]),"/admin/payments?status=WAITING_VERIFICATION"],["Pengadaan aktif",count(["PAID","PURCHASING","PURCHASED","CHECKING_ITEM"]),"/admin/procurement"],["Dalam pengiriman",count(["INTERNATIONAL_SHIPPING","ARRIVED_INDONESIA","DOMESTIC_SHIPPING"]),"/admin/orders"],["Selesai",count(["COMPLETED"]),"/admin/orders?status=COMPLETED"]] as const;
+ return <div className="space-y-8"><header className="flex flex-wrap items-end justify-between gap-4"><div><p className="eyebrow">Ruang kerja Titip Clei</p><h1 className="page-title">Ringkasan bisnis</h1><p className="mt-3 text-muted-foreground">Prioritas pesanan dan hasil usaha dari transaksi yang tercatat.</p></div><Link href="/admin/reports" className="btn-secondary">Lihat laporan</Link></header><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{cards.map(([label,value,href])=><Link key={label} href={href} className="panel hover:border-primary"><p className="text-sm text-muted-foreground">{label}</p><p className="mt-3 text-3xl font-semibold">{value}</p></Link>)}</div><section className="panel"><h2 className="text-lg font-semibold">Keuangan pesanan terverifikasi</h2><div className="mt-6 grid gap-6 sm:grid-cols-3">{[["Pendapatan",totals.revenue],["Total biaya",totals.cost],["Laba kotor",totals.profit]].map(([label,value])=><div key={String(label)}><p className="text-sm text-muted-foreground">{String(label)}</p><p className="mt-2 text-2xl font-semibold">{formatIdr(value)}</p></div>)}</div><p className="mt-5 text-xs leading-6 text-muted-foreground">Kode unik tidak dihitung sebagai pendapatan. {totals.estimated} pesanan masih memakai estimasi biaya hingga pembelian dicatat.</p></section><div className="grid gap-6 lg:grid-cols-2"><section className="panel"><h2 className="font-semibold">Request & penawaran</h2><dl className="mt-5 space-y-4">{[["Request baru",requests.find(r=>r.status==="PENDING_REVIEW")?._count||0],["Penawaran terkirim",quotations.find(q=>q.status==="SENT")?._count||0],["Penawaran diterima",quotations.find(q=>q.status==="ACCEPTED")?._count||0]].map(([label,value])=><div key={label} className="flex justify-between"><dt>{label}</dt><dd className="font-semibold">{value}</dd></div>)}</dl><Link className="mt-6 inline-block text-primary underline" href="/admin/requests">Review request</Link></section><section className="panel"><h2 className="font-semibold">Pembayaran</h2><dl className="mt-5 space-y-4">{[["Menunggu",["WAITING_PAYMENT","WAITING_VERIFICATION"]],["Terverifikasi",["VERIFIED","PAID"]],["Ditolak",["REJECTED"]]].map(([label,statuses])=><div key={String(label)} className="flex justify-between"><dt>{label}</dt><dd className="font-semibold">{payments.filter(p=>(statuses as string[]).includes(p.status)).reduce((n,p)=>n+p._count,0)}</dd></div>)}</dl><Link className="mt-6 inline-block text-primary underline" href="/admin/payments">Review pembayaran</Link></section></div></div>;
 }

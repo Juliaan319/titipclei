@@ -27,6 +27,7 @@ export async function POST(request: Request) {
         variants: {
           create: prepared.input.variants?.map((v) => ({
             name: v.name,
+            status: v.status,
             colorName: v.colorName,
             colorHex: v.colorHex,
             size: v.size,

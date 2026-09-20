@@ -15,6 +15,7 @@ export default async function ProductDetailPage({
   const product = await prisma.product.findFirst({
     where: { slug, status: { not: "CLOSED" } },
     include: {
+      _count: { select: { variants: true } },
       images: { orderBy: { sortOrder: "asc" } },
       category: true,
       variants: {
@@ -30,6 +31,7 @@ export default async function ProductDetailPage({
   // Convert to expected type
   const productData = {
     id: product.id,
+    unavailable: product._count.variants > 0 && product.variants.length === 0,
     slug: product.slug,
     name: product.name,
     brand: product.brand,
@@ -55,16 +57,16 @@ export default async function ProductDetailPage({
   };
 
   return (
-    <main className="min-h-screen bg-[#F7F8FC] py-8">
+    <main className="min-h-screen bg-[#FFF9F5] py-8">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <Link
           href="/products"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-[#5B3DF5]"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-[#A84F63]"
         >
           <ArrowLeft className="h-4 w-4" />
           Kembali ke produk
         </Link>
-        <div className="mt-6 overflow-hidden rounded-3xl border border-[#E6E8F0] bg-white shadow-sm">
+        <div className="mt-6 overflow-hidden rounded-xl border border-[#E8D8D1] bg-white shadow-sm">
           <ProductViewer product={productData} />
         </div>
       </div>

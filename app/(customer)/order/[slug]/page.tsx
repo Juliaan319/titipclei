@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { CatalogOrderForm } from "@/components/CatalogOrderForm";
 import { paymentDestination } from "@/lib/payment-settings";
@@ -17,7 +17,7 @@ export default async function CatalogOrderPage({
   
   const product = await prisma.product.findFirst({ 
     where: { slug, status: { not: "CLOSED" } }, 
-    include: { category: true } 
+    include: { category: true, variants: { where: { status: "ACTIVE" }, select: { id: true } } } 
   });
   if (!product) notFound();
 
@@ -27,7 +27,7 @@ export default async function CatalogOrderPage({
       where: { id: variantId },
       include: { images: { orderBy: { sortOrder: 'asc' }, take: 1 } }
     });
-    if (v && v.productId === product.id) {
+    if (v && v.productId === product.id && v.status === "ACTIVE") {
       selectedVariant = {
         id: v.id,
         name: v.name,
@@ -40,6 +40,7 @@ export default async function CatalogOrderPage({
     }
   }
 
+  if (product.variants.length && !selectedVariant) redirect(`/products/${product.slug}`);
   return (
     <CatalogOrderForm 
       product={{ 

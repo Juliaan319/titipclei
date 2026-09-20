@@ -77,7 +77,7 @@ export function AdminProductForm({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState(product?.imageUrl || "");
   const [imageUrls, setImageUrls] = useState<string[]>(product?.imageUrls || (product?.imageUrl ? [product.imageUrl] : []));
-  const [previewUrl, setPreviewUrl] = useState(product?.imageUrl || "");
+  const [, setPreviewUrl] = useState(product?.imageUrl || "");
   const [imageInfo, setImageInfo] = useState<ImageInfo | null>(
     product?.imageUrl ? { name: "Gambar produk tersimpan", size: null } : null,
   );
@@ -95,7 +95,7 @@ export function AdminProductForm({
   );
   const [values, setValues] = useState({
     originalPrice: String(product?.originalPrice ?? ""),
-    chinaShipping: "0",
+    chinaShipping: String(product?.chinaShipping ?? 0),
     internationalShipping: String(product?.internationalShipping ?? 0),
     tax: String(product?.tax ?? 0),
     additionalCost: String(product?.additionalCost ?? 0),
@@ -104,6 +104,7 @@ export function AdminProductForm({
     marginFixed: String(product?.marginFixed ?? 0),
     roundingType: product?.roundingType ?? "ROUND_5000",
     useManualRate: product?.useManualRate ?? false,
+    useLatestRate: false,
     manualRate: String(product?.useManualRate ? product.exchangeRate : ""),
   });
   const [variants, setVariants] = useState<VariantData[]>(product?.variants || []);
@@ -116,7 +117,7 @@ export function AdminProductForm({
   const preview = useMemo(() => {
     const purchase = number(values.originalPrice) * appliedRate;
     const total =
-      purchase +
+      purchase + number(values.chinaShipping) +
       number(values.internationalShipping) +
       number(values.tax) +
       number(values.additionalCost);
@@ -136,7 +137,8 @@ export function AdminProductForm({
           : values.roundingType === "ROUND_10000"
             ? 10000
             : 1;
-    return { purchase, total, profit, final: Math.ceil(raw / round) * round };
+    const final = round === 1 ? Math.round(raw) : Math.ceil(raw / round) * round;
+    return { purchase, total, profit: final - total, final };
   }, [values, appliedRate]);
 
   async function refreshRate() {
@@ -153,6 +155,7 @@ export function AdminProductForm({
       return setError(
         "Kurs terakhir tidak valid. Gunakan kurs manual atau coba lagi.",
       );
+    update("useLatestRate", true);
     setRate({
       rate: refreshedRate,
       asOf:
@@ -246,7 +249,7 @@ export function AdminProductForm({
     setSaving(true);
     setError("");
     const form = new FormData(event.currentTarget);
-    const response = await fetch(
+    try { const response = await fetch(
       product ? `/api/admin/products/${product.id}` : "/api/admin/products",
       {
         method: product ? "PATCH" : "POST",
@@ -272,11 +275,12 @@ export function AdminProductForm({
       return setError(result?.error || "Gagal menyimpan produk.");
     router.replace("/admin/products");
     router.refresh();
+    } catch { setError("Koneksi terputus. Silakan coba lagi."); } finally { setSaving(false); }
   }
 
   const amountInput = (
     label: string,
-    key: "internationalShipping" | "tax" | "additionalCost",
+    key: "chinaShipping" | "internationalShipping" | "tax" | "additionalCost",
   ) => (
     <label className="block text-sm font-semibold">
       {label} (Opsional)
@@ -298,7 +302,7 @@ export function AdminProductForm({
       className="mt-7 grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"
     >
       <div className="space-y-6">
-        <section className="space-y-4 rounded-2xl border bg-white p-6">
+        <section className="space-y-4 rounded-xl border bg-white p-6">
           <div>
             <h2 className="text-lg font-bold">Informasi Produk</h2>
             <p className="text-sm text-slate-500">
@@ -381,7 +385,7 @@ export function AdminProductForm({
                   </div>
                 </div>
                 {uploading && (
-                  <p className="mt-3 flex items-center gap-2 text-sm text-indigo-700">
+                  <p className="mt-3 flex items-center gap-2 text-sm text-rose-700">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Mengupload...
                   </p>
@@ -390,7 +394,7 @@ export function AdminProductForm({
                   <button
                     type="button"
                     onClick={() => void uploadImage(selectedFile)}
-                    className="mt-2 text-sm font-semibold text-indigo-600"
+                    className="mt-2 text-sm font-semibold text-rose-600"
                   >
                     Coba Lagi
                   </button>
@@ -410,12 +414,12 @@ export function AdminProductForm({
                   setDragging(false);
                   chooseImage(event.dataTransfer.files[0]);
                 }}
-                className={`mt-2 flex min-h-48 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition ${dragging ? "border-indigo-400 bg-indigo-50" : "border-slate-200 bg-slate-50 hover:border-indigo-300"}`}
+                className={`mt-2 flex min-h-48 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition ${dragging ? "border-rose-400 bg-rose-50" : "border-slate-200 bg-slate-50 hover:border-rose-300"}`}
               >
-                <span className="grid h-11 w-11 place-items-center rounded-full bg-indigo-100 text-indigo-700">
+                <span className="grid h-11 w-11 place-items-center rounded-full bg-rose-100 text-rose-700">
                   <Upload className="h-5 w-5" />
                 </span>
-                <span className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-indigo-700">
+                <span className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-rose-700">
                   <ImagePlus className="h-4 w-4" />
                   Import Gambar
                 </span>
@@ -449,16 +453,6 @@ export function AdminProductForm({
                 <option value="CLOSED">Tidak aktif</option>
               </select>
             </label>
-            <label className="block text-sm font-semibold">
-              Stock
-              <input
-                name="stock"
-                type="number"
-                min="0"
-                defaultValue={product?.stock ?? 0}
-                className="field mt-2"
-              />
-            </label>
             <label className="flex items-center gap-2 pt-7 text-sm font-semibold">
               <input
                 name="featured"
@@ -470,7 +464,7 @@ export function AdminProductForm({
           </div>
         </section>
         <ProductVariantManager variants={variants} onChange={setVariants} productId={product?.id} />
-        <section className="space-y-5 rounded-2xl border border-indigo-100 bg-white p-6">
+        <section className="space-y-5 rounded-xl border border-rose-100 bg-white p-6">
           <div>
             <h2 className="text-lg font-bold">Harga & Margin</h2>
             <p className="text-sm text-slate-500">
@@ -500,11 +494,11 @@ export function AdminProductForm({
               CNY / ¥ · {cny(number(values.originalPrice))}
             </span>
           </label>
-          <div className="rounded-xl bg-indigo-50 p-4">
+          <div className="rounded-xl bg-rose-50 p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-semibold">Kurs Jual BI CNY/IDR</p>
-                <p className="mt-1 text-xl font-bold text-indigo-700">
+                <p className="mt-1 text-xl font-bold text-rose-700">
                   1 CNY = {idr(appliedRate)}
                 </p>
                 <p className="mt-1 text-xs text-slate-600">
@@ -518,7 +512,7 @@ export function AdminProductForm({
               <button
                 type="button"
                 onClick={refreshRate}
-                className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700"
+                className="rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700"
               >
                 Perbarui Kurs
               </button>
@@ -562,6 +556,7 @@ export function AdminProductForm({
               "Biaya Pengiriman China → Indonesia",
               "internationalShipping",
             )}
+            {amountInput("Ongkir lokal China (IDR)", "chinaShipping")}
             {amountInput("Pajak / Bea", "tax")}
             {amountInput("Biaya Tambahan", "additionalCost")}
           </div>
@@ -643,7 +638,7 @@ export function AdminProductForm({
           </p>
         )}
       </div>
-      <aside className="h-fit rounded-2xl border bg-white p-6 lg:sticky lg:top-6">
+      <aside className="h-fit rounded-xl border bg-white p-6 lg:sticky lg:top-6">
         <h2 className="text-lg font-bold">Ringkasan Harga</h2>
         <dl className="mt-5 space-y-3 text-sm">
           <Row label="Harga Beli" value={cny(number(values.originalPrice))} />
@@ -664,7 +659,7 @@ export function AdminProductForm({
           <p className="text-sm font-semibold text-slate-600">
             Harga Jual ke Customer
           </p>
-          <p className="mt-1 text-3xl font-extrabold text-indigo-700">
+          <p className="mt-1 text-3xl font-extrabold text-rose-700">
             {idr(preview.final)}
           </p>
         </div>
